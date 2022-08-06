@@ -351,7 +351,7 @@ vector<double> calc_min_time_old(vector<tuple<vector<double>, vector<double>, do
 
 		}
 		
-		min_time_l.push_back((accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0) / p_count + accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0) / p_count) / 2.0);
+		min_time_l.push_back((accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0) / p_count + accumulate(low_ten_R.begin(), low_ten_R.end(), 0.0) / p_count) / 2.0);
 
 	}
 	return min_time_l;
@@ -423,7 +423,7 @@ void write_file(vector<vector<double>> sd_err_l, const char *filename)
 }
 
 
-void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, const char *title)
+void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, const char *title, const char *legend_a, const char *legend_b)
 {
 
         TGraphErrors *gr = new TGraphErrors();
@@ -442,7 +442,7 @@ void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err,
         TCanvas *c1 = new TCanvas();
 	c1->SetLogy();
         gr->SetMinimum(7.);
-	gr->SetMaximum(200000.);
+	gr->SetMaximum(2000.);
         int n = 0;
         for (int i = 0; i<x.size(); i++) {
                 n = gr->GetN();
@@ -475,8 +475,8 @@ void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err,
 	gr->SetTitle(title);
 
 	auto legend = new TLegend(0.7, 0.6, 0.85, 0.75);
-	legend->AddEntry(gr, "weighted ave with path");
-	legend->AddEntry(gr1, "old formula no path no weight");
+	legend->AddEntry(gr, legend_a);
+	legend->AddEntry(gr1, legend_b);
 
 	legend->Draw();
 }
@@ -661,11 +661,11 @@ void extr_time()
 
 	vector<tuple<vector<double>, vector<double>, double>> time_l_ESR = store_time("ESR_muon_center_500_entries0.root");
 	
-	vector<tuple<vector<double>, vector<double>, double>> time_l_Tyvek = store_time("ideal_tyvek_muon_center_500_entries0.root");
+	vector<tuple<vector<double>, vector<double>, double>> time_l_tyvek = store_time("real_tyvek_muon_500_entries_rand0.root");
 
 	vector<tuple<vector<double>, vector<double>, double>> time_l_ESR_rand = store_time("ESR_muon_500_entries0.root");
 	
-	vector<tuple<vector<double>, vector<double>, double>> time_l_Tyvek_rand = store_time("tyvek_muon_500_entries0.root");
+	vector<tuple<vector<double>, vector<double>, double>> time_l_lamb_rand = store_time("tyvek_muon_500_entries0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_99_spec = store_time("99_dot_9_percent_specular_muon_center0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_99_spec_rand = store_time("99_specular_muon_randZ_500entries0.root");
 	
@@ -673,27 +673,27 @@ void extr_time()
 	vector<tuple<vector<double>, vector<double>, double>> time_l_1_6_spike = store_time("lamb_gap_rindex1.6_muon_rand_500entries0.root");
 	
 	
-	vector<double> sd_l_ESR, err_l_ESR, sd_l_tyvek, err_l_tyvek, sd_l_spec, err_l_spec, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike;
+	vector<double> sd_l_ESR, err_l_ESR, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec, err_l_spec, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike;
 
 	vector<double> sd_l_ESR_rand, err_l_ESR_rand, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_spec_rand, err_l_spec_rand;
 
-	vector<double> sd_l_ESR_old, err_l_ESR_old, sd_l_tyvek_old, err_l_tyvek_old, sd_l_spec_old, err_l_spec_old, sd_l_airgap_old, err_l_airgap_old, sd_l_1_6spike_old, err_l_1_6spike_old;
+//	vector<double> sd_l_ESR_old, err_l_ESR_old, sd_l_tyvek_old, err_l_tyvek_old, sd_l_spec_old, err_l_spec_old, sd_l_airgap_old, err_l_airgap_old, sd_l_1_6spike_old, err_l_1_6spike_old;
 
-	vector<double> sd_l_ESR_rand_old, err_l_ESR_rand_old, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, sd_l_spec_rand_old, err_l_spec_rand_old;
+//	vector<double> sd_l_ESR_rand_old, err_l_ESR_rand_old, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, sd_l_spec_rand_old, err_l_spec_rand_old;
 
 	vector<int> photon_num = {1,5,10,25,50,75,100,150};
 	for (int j : photon_num) {
 
 	vector<double>min_time_l_ESR = calc_min_time(time_l_ESR, j, "ESR_muon_center_500_entries0.root", true);
-	vector<double> min_time_l_Tyvek = calc_min_time(time_l_Tyvek, j, "ideal_tyvek_muon_center_500_entries0.root", true);
+	vector<double> min_time_l_tyvek_rand = calc_min_time(time_l_tyvek, j, "real_tyvek_muon_500_entries_rand0.root", false);
 	vector<double> min_time_l_ESR_rand = calc_min_time(time_l_ESR_rand, j, "ESR_muon_500_entries0.root", false);
-	vector<double> min_time_l_Tyvek_rand = calc_min_time(time_l_Tyvek_rand, j, "tyvek_muon_500_entries0.root", false);
+	vector<double> min_time_l_lamb_rand = calc_min_time(time_l_lamb_rand, j, "tyvek_muon_500_entries0.root", false);
 	vector<double> min_time_l_spec = calc_min_time(time_l_99_spec, j, "99_dot_9_percent_specular_muon_center0.root", true);
 	vector<double> min_time_l_spec_rand = calc_min_time(time_l_99_spec_rand, j, "99_specular_muon_randZ_500entries0.root", false);
 	vector<double> min_time_l_airgap = calc_min_time(time_l_airgap, j, "lamb_airgap_rindex1_muon_rand_500entries0.root", false);
 	vector<double> min_time_l_1_6_spike = calc_min_time(time_l_1_6_spike, j, "lamb_gap_rindex1.6_muon_rand_500entries0.root", false);
 	
-
+/*
 	vector<double> min_time_l_ESR_old = calc_min_time_old(time_l_ESR, j);
 	vector<double> min_time_l_Tyvek_old = calc_min_time_old(time_l_Tyvek, j);
 	vector<double> min_time_l_ESR_rand_old = calc_min_time_old(time_l_ESR_rand, j);
@@ -702,7 +702,7 @@ void extr_time()
 	vector<double> min_time_l_spec_rand_old = calc_min_time_old(time_l_99_spec_rand, j);
 	vector<double> min_time_l_airgap_old = calc_min_time_old(time_l_airgap, j);
 	vector<double> min_time_l_1_6_spike_old = calc_min_time_old(time_l_1_6_spike, j);
-
+*/
 	char name1[100], name2[100], name3[100], name4[100], name5[100], name6[100], name7[100], name8[100];
 	sprintf(name1, "ESR average timing of first %d", j);
 	sprintf(name2, "tyvek average timing of first %d", j);
@@ -715,8 +715,8 @@ void extr_time()
 
 
 	vector<double> temp_tup_ESR = hist_simple(name1, min_time_l_ESR);
-	vector<double> temp_tup_tyvek = hist_simple(name2, min_time_l_Tyvek);
-	vector<double> temp_tup_tyvek_rand = hist_simple(name4, min_time_l_Tyvek_rand);
+	vector<double> temp_tup_tyvek_rand = hist_simple(name2, min_time_l_tyvek_rand);
+	vector<double> temp_tup_lamb_rand = hist_simple(name4, min_time_l_lamb_rand);
 	vector<double> temp_tup_ESR_rand = hist_simple(name3, min_time_l_ESR_rand);
 	vector<double> temp_tup_spec = hist_simple(name5, min_time_l_spec);
 	vector<double> temp_tup_spec_rand = hist_simple(name6, min_time_l_spec_rand);
@@ -724,8 +724,6 @@ void extr_time()
 	vector<double> temp_tup_1_6_spike_rand = hist_simple(name8, min_time_l_1_6_spike);
 	sd_l_ESR.push_back(temp_tup_ESR[0]);
 	err_l_ESR.push_back(temp_tup_ESR[1]);
-	sd_l_tyvek.push_back(temp_tup_tyvek[0]);
-	err_l_tyvek.push_back(temp_tup_tyvek[1]);
 	sd_l_spec.push_back(temp_tup_spec[0]);
 	err_l_spec.push_back(temp_tup_spec[1]);
 
@@ -733,6 +731,8 @@ void extr_time()
 	err_l_ESR_rand.push_back(temp_tup_ESR_rand[1]);
 	sd_l_tyvek_rand.push_back(temp_tup_tyvek_rand[0]);
 	err_l_tyvek_rand.push_back(temp_tup_tyvek_rand[1]);
+	sd_l_lamb_rand.push_back(temp_tup_lamb_rand[0]);
+	err_l_lamb_rand.push_back(temp_tup_lamb_rand[1]);
 	sd_l_spec_rand.push_back(temp_tup_spec_rand[0]);
 	err_l_spec_rand.push_back(temp_tup_spec_rand[1]);
 	sd_l_airgap.push_back(temp_tup_airgap_rand[0]);
@@ -741,7 +741,7 @@ void extr_time()
 	err_l_1_6spike.push_back(temp_tup_1_6_spike_rand[1]);
 
 
-
+/*
 	vector<double> temp_tup_ESR_old = hist_simple(name1, min_time_l_ESR_old);
 	vector<double> temp_tup_tyvek_old = hist_simple(name2, min_time_l_Tyvek_old);
 	vector<double> temp_tup_tyvek_rand_old = hist_simple(name4, min_time_l_Tyvek_rand_old);
@@ -767,11 +767,31 @@ void extr_time()
 	err_l_airgap_old.push_back(temp_tup_airgap_rand_old[1]);
 	sd_l_1_6spike_old.push_back(temp_tup_1_6_spike_rand_old[0]);
 	err_l_1_6spike_old.push_back(temp_tup_1_6_spike_rand_old[1]);
+	*/
 	}
 	vector<int> x = {1,5,10,25,50,75,100,150};
 
 //	plot_all(x, sd_l_tyvek, err_l_tyvek, sd_l_ESR, err_l_ESR, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec, err_l_spec, sd_l_spec_rand, err_l_spec_rand, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike, "Time Resolution vs. Threshold; Number of Early Photons Averaged; Time Resolution (ps)");
 	
+	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec_rand, err_l_spec_rand, "ESR rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "99.9 specular");
+
+	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_tyvek_rand, err_l_tyvek_rand, "ESR rand vs. tyvek rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "tyvek");
+
+	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_airgap, err_l_airgap, "ESR rand vs. airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.0");
+
+	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_1_6spike, err_l_1_6spike, "ESR rand vs. airgap r=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.6");
+
+	plot_both(x, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec_rand, err_l_spec_rand, "perfect lambertian rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "perfect lambertian", "99.9 specular");
+
+
+
+
+
+
+
+
+
+/*
 	plot_both(x, sd_l_tyvek, err_l_tyvek, sd_l_tyvek_old, err_l_tyvek_old, "tyvek center; Number of Early Photons Averaged; Time Resolution (ps)");
 	plot_both(x, sd_l_ESR, err_l_ESR, sd_l_ESR_old, err_l_ESR_old, "ESR center; Number of Early Photons Averaged; Time Resolution (ps)");
 	plot_both(x, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, "tyvek rand; Number of Early Photons Averaged; Time Resolution (ps)");
@@ -780,9 +800,9 @@ void extr_time()
 	plot_both(x, sd_l_spec_rand, err_l_spec_rand, sd_l_spec_rand_old, err_l_spec_rand_old, "99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)");
 	plot_both(x, sd_l_airgap, err_l_airgap, sd_l_airgap_old, err_l_airgap_old, "airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)");
 	plot_both(x, sd_l_1_6spike, err_l_1_6spike, sd_l_1_6spike_old, err_l_1_6spike_old, "airgap ri=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)");
-
+*/	
 	
-	/*
+/*
 	vector<double> X_pos = get_stuff("ideal_tyvek_muon_center_500_entries0.root", "ScoringKilled", "fX");
 	vector<double> Y_pos = get_stuff("ideal_tyvek_muon_center_500_entries0.root", "ScoringKilled", "fY");
 	vector<double> Z_pos = get_stuff("ideal_tyvek_muon_center_500_entries0.root", "ScoringKilled", "fZ");
