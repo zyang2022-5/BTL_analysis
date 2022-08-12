@@ -33,7 +33,7 @@ vector<tuple<vector<double>, vector<double>, double>> store_time(const char *fil
 	int init;
 	int temp;
 	
-	while (test < entries-1) {
+	while (test < entries) {
 		
 		init = test;
 		temp_l_L = {};
@@ -57,11 +57,12 @@ vector<tuple<vector<double>, vector<double>, double>> store_time(const char *fil
 		}
 		
 //		if (E_dep > 0.5) {
+//		cout << muon_Z << endl;
 		time_l.push_back(make_tuple(temp_l_L, temp_l_R, muon_Z*1000.));
 //		}
 
 	}
-
+	input->Close();
 	return time_l;
 	
 }
@@ -135,7 +136,7 @@ vector<double> get_stuff(const char *filename, const char *treename, const char 
 	return content_l;
 }
 
-vector<double> find_ave_path(const char *filename, int p_count_int, bool center) 
+TF1* find_ave_path(const char *filename, int p_count_int, bool center)
 {
 	TFile *input = new TFile(filename, "read");
 	TTree *tree = (TTree*)input->Get("Hits");
@@ -168,7 +169,7 @@ vector<double> find_ave_path(const char *filename, int p_count_int, bool center)
 	vector<double> low_ten_L;
 	vector<double> low_ten_R;
 	
-	while (test < entries-1) {
+	while (test < entries) {
 		
 		init = test;
 		temp_l_L = {};
@@ -177,7 +178,7 @@ vector<double> find_ave_path(const char *filename, int p_count_int, bool center)
 		temp_l_t_R = {};
 		tree->GetEntry(init);
 		temp = event;
-		tree_3->GetEntry(event-1);
+		tree_3->GetEntry(temp-1);
 
 		for(int i = init; i < entries; i++){
 			tree->GetEntry(i);
@@ -234,11 +235,14 @@ vector<double> find_ave_path(const char *filename, int p_count_int, bool center)
 			}
 		}
 	}
+	
+	input->Close();
 
 	if (center) {
-		vector<double> center_ave_path;
-		center_ave_path.push_back(accumulate(plength.begin(), plength.end(), 0.0) / plength.size());
-		return center_ave_path;
+		double center_ave_path = accumulate(plength.begin(), plength.end(), 0.0) / plength.size();
+		TF1 *dummy = new TF1("dummy", "pol0", 0, 58);
+		dummy->SetParameter(0, center_ave_path);
+		return dummy;
 	} else {
 //		TCanvas *c1 = new TCanvas();
 		TGraph *gr = new TGraph();
@@ -255,45 +259,43 @@ vector<double> find_ave_path(const char *filename, int p_count_int, bool center)
 
 		TF1 *fit = new TF1("fit", "pol4", 0, 58);
 		gr->Fit("fit");
-
-
-		vector<double> fit_para{fit->GetParameter(0), fit->GetParameter(1), fit->GetParameter(2), fit->GetParameter(3), fit->GetParameter(4)};
-		return fit_para;
+		
+//		vector<double> fit_para{fit->GetParameter(0), fit->GetParameter(1), fit->GetParameter(2), fit->GetParameter(3), fit->GetParameter(4)};
+		return fit;
 	}
 }
 
 
 // This function takes in a vector containing all the timing of every optical photon with 0.5 mev or above and a integer p_count_int that represents the first how many photons to average. It returns a list of doubles containing the average timing per event which is the first p_count_int number of photons time averaged.
-vector<double> calc_min_time(vector<tuple<vector<double>, vector<double>, double>>& time_l, int p_count_int, const char *filename, bool center)
+vector<double> calc_min_time(vector<tuple<vector<double>, vector<double>, double>>& time_l_o, int p_count_int, const char *filename, bool center)
 {
+	vector<tuple<vector<double>, vector<double>, double>> time_l = time_l_o;
 	double p_count = (double) p_count_int;
 	double r_index = 1.845;
-	double min_L;
-	double min_R;
+//	double min_L;
+//	double min_R;
 	double ave_path_L;
 	double ave_path_R;
-	double c_n = 3.0e+11 / r_index;   // mm / s
+	double c_n = 3.0e11 / r_index;   // mm / s
 	double sigma_L, sigma_R, w_L, w_R;
 	double pos_L, pos_R;
-	vector<double> fit;
+	TF1 *fit = find_ave_path(filename, p_count_int, center);
 
-	fit = find_ave_path(filename, p_count_int, center);
-	
 	vector<double> low_ten;
-	vector<double> low_ten_L;
-	vector<double> low_ten_R;
+//	vector<double> low_ten_L;
+//	vector<double> low_ten_R;
 	vector<double> min_time_l;
-	double ave_min;
+	double ave_t_L, ave_t_R;
 
 	for (int i = 0; i < time_l.size(); i++) {
 		
-		low_ten_L.clear();
-		low_ten_R.clear();
+//		low_ten_L.clear();
+//		low_ten_R.clear();
 		sigma_L = 1.0 / get<0>(time_l[i]).size();
 		sigma_R = 1.0 / get<1>(time_l[i]).size();
 		w_L = 1.0 / (sigma_L * sigma_L);
 		w_R = 1.0 / (sigma_R * sigma_R);
-
+/*
 		for(int j = 0; j < p_count_int; j++) {
 			min_L = *min_element(get<0>(time_l[i]).begin(), get<0>(time_l[i]).end());
 			min_R = *min_element(get<1>(time_l[i]).begin(), get<1>(time_l[i]).end());
@@ -304,19 +306,32 @@ vector<double> calc_min_time(vector<tuple<vector<double>, vector<double>, double
 			low_ten_R.push_back(min_R);
 
 		}
+*/
+		sort(get<0>(time_l[i]).begin(), get<0>(time_l[i]).end());
+		sort(get<1>(time_l[i]).begin(), get<1>(time_l[i]).end());
+
+		ave_t_L = accumulate(get<0>(time_l[i]).begin(), get<0>(time_l[i]).begin() + p_count_int, 0.0) / p_count;
+		ave_t_R = accumulate(get<1>(time_l[i]).begin(), get<1>(time_l[i]).begin() + p_count_int, 0.0) / p_count;
+
 
 		if (center) {
-			ave_path_L = fit[0];
-			ave_path_R = fit[0];
+			ave_path_L = fit->Eval(10.);
+			ave_path_R = fit->Eval(10.);
 		} else {
 			pos_L = 28.5 + get<2>(time_l[i]);
 			pos_R = 28.5 - get<2>(time_l[i]);
 
-			ave_path_L = fit[0] + fit[1]*pos_L + fit[2]*pow(pos_L,2.0) + fit[3]*pow(pos_L, 3.0) + fit[4]*pow(pos_L, 4.0);
-			ave_path_R = fit[0] + fit[1]*pos_R + fit[2]*pow(pos_R,2.0) + fit[3]*pow(pos_R, 3.0) + fit[4]*pow(pos_R, 4.0);
-		}
+			ave_path_L = fit->Eval(pos_L);
+			ave_path_R = fit->Eval(pos_R);
+//			ave_path_L = fit[0] + fit[1]*pos_L + fit[2]*pow(pos_L,2.0) + fit[3]*pow(pos_L, 3.0) + fit[4]*pow(pos_L, 4.0);
+//			ave_path_R = fit[0] + fit[1]*pos_R + fit[2]*pow(pos_R,2.0) + fit[3]*pow(pos_R, 3.0) + fit[4]*pow(pos_R, 4.0);
 		
-		min_time_l.push_back((((accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0)/p_count) - (ave_path_L / c_n)*1.0e12) * w_L + ((accumulate(low_ten_R.begin(), low_ten_R.end(), 0.0)/p_count) - (ave_path_R / c_n)*1.0e12) * w_R) / (w_L + w_R));
+		}
+//		ave_t_L = accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0) / p_count;
+
+//	       	ave_t_R = accumulate(low_ten_R.begin(), low_ten_R.end(), 0.0) / p_count;
+		
+		min_time_l.push_back(((ave_t_L - ((ave_path_L / c_n)*1.0e12)) * w_L + (ave_t_R - ((ave_path_R / c_n)*1.0e12)) * w_R) / (w_L + w_R));
 
 	}
 	return min_time_l;
@@ -324,22 +339,29 @@ vector<double> calc_min_time(vector<tuple<vector<double>, vector<double>, double
 
 
 // This function takes in a vector containing all the timing of every optical photon with 0.5 mev or above and a integer p_count_int that represents the first how many photons to average. It returns a list of doubles containing the average timing per event which is the first p_count_int number of photons time averaged.
-vector<double> calc_min_time_old(vector<tuple<vector<double>, vector<double>, double>>& time_l, int p_count_int)
+vector<double> calc_min_time_old(vector<tuple<vector<double>, vector<double>, double>>& time_l_o, int p_count_int)
 {
+
+	vector<tuple<vector<double>, vector<double>, double>> time_l = time_l_o;
 	double p_count = (double) p_count_int;
-	double min_L;
-	double min_R;
+//	double min_L;
+//	double min_R;
+	double ave_t_L, ave_t_R;
 	vector<double> low_ten;
-	vector<double> low_ten_L;
-	vector<double> low_ten_R;
+//	vector<double> low_ten_L;
+//	vector<double> low_ten_R;
 	vector<double> min_time_l;
-	double ave_min;
 
 	for (int i = 0; i < time_l.size(); i++) {
 		
-		low_ten_L.clear();
-		low_ten_R.clear();
+		sort(get<0>(time_l[i]).begin(), get<0>(time_l[i]).end());
+		sort(get<1>(time_l[i]).begin(), get<1>(time_l[i]).end());
+		ave_t_L = accumulate(get<0>(time_l[i]).begin(), get<0>(time_l[i]).begin() + p_count_int, 0.0) / p_count;
 
+		ave_t_R = accumulate(get<1>(time_l[i]).begin(), get<1>(time_l[i]).begin() + p_count_int, 0.0) / p_count;
+//		low_ten_L.clear();
+//		low_ten_R.clear();
+/*
 		for(int j = 0; j < p_count_int; j++) {
 			min_L = *min_element(get<0>(time_l[i]).begin(), get<0>(time_l[i]).end());
 			min_R = *min_element(get<1>(time_l[i]).begin(), get<1>(time_l[i]).end());
@@ -350,14 +372,14 @@ vector<double> calc_min_time_old(vector<tuple<vector<double>, vector<double>, do
 			low_ten_R.push_back(min_R);
 
 		}
-		
-		min_time_l.push_back((accumulate(low_ten_L.begin(), low_ten_L.end(), 0.0) / p_count + accumulate(low_ten_R.begin(), low_ten_R.end(), 0.0) / p_count) / 2.0);
+*/		
+		min_time_l.push_back((ave_t_L + ave_t_R) / 2.0);
 
 	}
 	return min_time_l;
 }
 
-vector<double>  hist_simple(const char *hist_name, vector<double>& min_time_l)
+vector<double> hist_simple(const char *hist_name, vector<double>& min_time_l)
 {
 //	TCanvas *c1 = new TCanvas();
 //	gStyle->SetOptStat(0);
@@ -367,7 +389,7 @@ vector<double>  hist_simple(const char *hist_name, vector<double>& min_time_l)
 	
 	vector<double> sd_err;
 
-	TH1F *hist = new TH1F("hist", hist_name, 150, x_low, x_high);
+	TH1F *hist = new TH1F(hist_name, hist_name, 150, x_low, x_high);
 
 	for (int i = 0; i < min_time_l.size(); i++) {
 		hist->Fill(min_time_l[i]);
@@ -393,7 +415,8 @@ void twod_hist(vector<double>& x, vector<double>& y, double x_s, double x_end, d
 	int entry_count = x.size();
 
 	double x_low = *min_element(x.begin(), x.end());
-	double y_low = *min_element(y.begin(), y.end());	      double x_high = *max_element(x.begin(), x.end());
+	double y_low = *min_element(y.begin(), y.end());	      
+	double x_high = *max_element(x.begin(), x.end());
 	double y_high = *max_element(y.begin(), y.end());
 
 	TH2F *hist = new TH2F("hist", title, x_bin, x_low, x_high, y_bin, y_low, y_high);
@@ -423,7 +446,7 @@ void write_file(vector<vector<double>> sd_err_l, const char *filename)
 }
 
 
-void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, const char *title, const char *legend_a, const char *legend_b)
+void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, const char *title, const char *filename, const char *legend_a, const char *legend_b)
 {
 
         TGraphErrors *gr = new TGraphErrors();
@@ -442,7 +465,7 @@ void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err,
         TCanvas *c1 = new TCanvas();
 	c1->SetLogy();
         gr->SetMinimum(7.);
-	gr->SetMaximum(2000.);
+	gr->SetMaximum(first.back() + 50.);
         int n = 0;
         for (int i = 0; i<x.size(); i++) {
                 n = gr->GetN();
@@ -479,6 +502,86 @@ void plot_both(vector<int>& x, vector<double>& first, vector<double>& first_err,
 	legend->AddEntry(gr1, legend_b);
 
 	legend->Draw();
+	c1->SaveAs(filename, "pdf");
+}
+
+
+void plot_three(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, vector<double>& third, vector<double>& third_err, const char *title, const char *legend_a, const char *legend_b, const char *legend_c)
+{
+
+        TGraphErrors *gr = new TGraphErrors();
+        TGraphErrors *gr1 = new TGraphErrors();
+	TGraphErrors *gr2 = new TGraphErrors();
+
+        gr->SetMarkerColor(kRed);
+	gr->SetLineStyle(1);
+	gr->SetLineColor(kRed);
+	gr->SetMarkerStyle(22);
+
+       	gr1->SetMarkerColor(kBlue);
+	gr1->SetLineStyle(2);
+	gr1->SetLineColor(kBlue);
+	gr1->SetMarkerStyle(kStar);
+
+	gr2->SetMarkerColor(3);
+	gr2->SetLineStyle(6);
+	gr2->SetLineColor(3);
+	gr2->SetMarkerStyle(4);
+
+        TCanvas *c1 = new TCanvas();
+	c1->SetLogy();
+        gr->SetMinimum(7.);
+	gr->SetMaximum(2000.);
+        int n = 0;
+        for (int i = 0; i<x.size(); i++) {
+                n = gr->GetN();
+                gr->SetPoint(n, x[i], first[i]);
+                gr->SetPointError(n,0, first_err[i]);
+        }
+
+        gr->Draw("AP");
+
+        n=0;
+        for (int i = 0; i<x.size(); i++) {
+                n = gr1->GetN();
+                gr1->SetPoint(n, x[i], second[i]);
+                gr1->SetPointError(n,0, second_err[i]);
+        }
+        gr1->Draw("P");
+	
+        n=0;
+        for (int i = 0; i<x.size(); i++) {
+                n = gr2->GetN();
+                gr2->SetPoint(n, x[i], third[i]);
+                gr2->SetPointError(n,0, third_err[i]);
+        }
+        gr2->Draw("P");
+
+
+        TF1 *fit = new TF1("fit", "pol2", 0 , 40);
+	fit->SetLineColor(kRed);
+	fit->SetLineStyle(1);
+        gr->Fit("fit");
+
+        TF1 *fit1 = new TF1("fit1", "pol2", 0, 40);
+        fit1->SetLineColor(kBlue);
+	fit1->SetLineStyle(2);
+        gr1->Fit("fit1");
+
+        TF1 *fit2 = new TF1("fit2", "pol2", 0, 40);
+        fit2->SetLineColor(3);
+	fit2->SetLineStyle(6);
+        gr2->Fit("fit2");
+
+	gr->SetTitle(title);
+
+	auto legend = new TLegend(0.7, 0.6, 0.85, 0.75);
+	legend->AddEntry(gr, legend_a);
+	legend->AddEntry(gr1, legend_b);
+	legend->AddEntry(gr2, legend_c);
+
+	legend->Draw();
+	c1->SaveAs(title, "pdf");
 }
 
 void plot_all(vector<int>& x, vector<double>& first, vector<double>& first_err, vector<double>& second, vector<double>& second_err, vector<double>& third, vector<double>& third_err, vector<double>& fourth, vector<double>& fourth_err, vector<double>& fifth, vector<double>& fifth_err, vector<double>& sixth, vector<double>& sixth_err, vector<double>& seventh, vector<double>& seventh_err, vector<double>& eighth, vector<double>& eighth_err, const char *title)
@@ -659,34 +762,32 @@ void extr_time()
 //	vector<double> fit_para = find_ave_path("lamb_gap_rindex1.6_muon_rand_500entries0.root", 100);
 //	printf("%f \n %f", fit_para[0], fit_para[1]);
 
-	vector<tuple<vector<double>, vector<double>, double>> time_l_ESR = store_time("ESR_muon_center_500_entries0.root");
-	
-	vector<tuple<vector<double>, vector<double>, double>> time_l_tyvek = store_time("real_tyvek_muon_500_entries_rand0.root");
-
+	vector<tuple<vector<double>, vector<double>, double>> time_l_ESR = store_time("ESR_muon_center_500_entries0.root");	
+//	vector<tuple<vector<double>, vector<double>, double>> time_l_tyvek = store_time("real_tyvek_muon_500_entries_rand0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_ESR_rand = store_time("ESR_muon_500_entries0.root");
-	
+	vector<tuple<vector<double>, vector<double>, double>> time_l_lamb = store_time("ideal_tyvek_muon_center_500_entries0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_lamb_rand = store_time("tyvek_muon_500_entries0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_99_spec = store_time("99_dot_9_percent_specular_muon_center0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_99_spec_rand = store_time("99_specular_muon_randZ_500entries0.root");
-	
 	vector<tuple<vector<double>, vector<double>, double>> time_l_airgap = store_time("lamb_airgap_rindex1_muon_rand_500entries0.root");
 	vector<tuple<vector<double>, vector<double>, double>> time_l_1_6_spike = store_time("lamb_gap_rindex1.6_muon_rand_500entries0.root");
 	
 	
-	vector<double> sd_l_ESR, err_l_ESR, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec, err_l_spec, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike;
+	vector<double> sd_l_ESR, err_l_ESR, sd_l_lamb, err_l_lamb, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec, err_l_spec, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike;
 
 	vector<double> sd_l_ESR_rand, err_l_ESR_rand, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_spec_rand, err_l_spec_rand;
 
-//	vector<double> sd_l_ESR_old, err_l_ESR_old, sd_l_tyvek_old, err_l_tyvek_old, sd_l_spec_old, err_l_spec_old, sd_l_airgap_old, err_l_airgap_old, sd_l_1_6spike_old, err_l_1_6spike_old;
+	vector<double> sd_l_ESR_old, err_l_ESR_old, sd_l_lamb_old, err_l_lamb_old, sd_l_lamb_rand_old, err_l_lamb_rand_old, sd_l_spec_old, err_l_spec_old, sd_l_airgap_old, err_l_airgap_old, sd_l_1_6spike_old, err_l_1_6spike_old;
 
-//	vector<double> sd_l_ESR_rand_old, err_l_ESR_rand_old, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, sd_l_spec_rand_old, err_l_spec_rand_old;
+	vector<double> sd_l_ESR_rand_old, err_l_ESR_rand_old, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, sd_l_spec_rand_old, err_l_spec_rand_old;
 
-	vector<int> photon_num = {1,5,10,25,50,75,100,150};
+	vector<int> photon_num = {1,3,5,10,15,20,25,35,50,75,100};
 	for (int j : photon_num) {
 
 	vector<double>min_time_l_ESR = calc_min_time(time_l_ESR, j, "ESR_muon_center_500_entries0.root", true);
-	vector<double> min_time_l_tyvek_rand = calc_min_time(time_l_tyvek, j, "real_tyvek_muon_500_entries_rand0.root", false);
+//	vector<double> min_time_l_tyvek_rand = calc_min_time(time_l_tyvek, j, "real_tyvek_muon_500_entries_rand0.root", false);
 	vector<double> min_time_l_ESR_rand = calc_min_time(time_l_ESR_rand, j, "ESR_muon_500_entries0.root", false);
+	vector<double> min_time_l_lamb = calc_min_time(time_l_lamb, j, "ideal_tyvek_muon_center_500_entries0.root", true);
 	vector<double> min_time_l_lamb_rand = calc_min_time(time_l_lamb_rand, j, "tyvek_muon_500_entries0.root", false);
 	vector<double> min_time_l_spec = calc_min_time(time_l_99_spec, j, "99_dot_9_percent_specular_muon_center0.root", true);
 	vector<double> min_time_l_spec_rand = calc_min_time(time_l_99_spec_rand, j, "99_specular_muon_randZ_500entries0.root", false);
@@ -694,15 +795,27 @@ void extr_time()
 	vector<double> min_time_l_1_6_spike = calc_min_time(time_l_1_6_spike, j, "lamb_gap_rindex1.6_muon_rand_500entries0.root", false);
 	
 /*
+	vector<double>min_time_l_ESR_old = calc_min_time_sqrt(time_l_ESR, j, "ESR_muon_center_500_entries0.root", true);
+//	vector<double> min_time_l_tyvek_rand = calc_min_time(time_l_tyvek, j, "real_tyvek_muon_500_entries_rand0.root", false);
+	vector<double> min_time_l_ESR_rand_old = calc_min_time_sqrt(time_l_ESR_rand, j, "ESR_muon_500_entries0.root", false);
+	vector<double> min_time_l_lamb_old = calc_min_time_sqrt(time_l_lamb, j, "ideal_tyvek_muon_center_500_entries0.root", true);
+	vector<double> min_time_l_lamb_rand_old = calc_min_time_sqrt(time_l_lamb_rand, j, "tyvek_muon_500_entries0.root", false);
+	vector<double> min_time_l_spec_old = calc_min_time_sqrt(time_l_99_spec, j, "99_dot_9_percent_specular_muon_center0.root", true);
+	vector<double> min_time_l_spec_rand_old = calc_min_time_sqrt(time_l_99_spec_rand, j, "99_specular_muon_randZ_500entries0.root", false);
+	vector<double> min_time_l_airgap_old = calc_min_time_sqrt(time_l_airgap, j, "lamb_airgap_rindex1_muon_rand_500entries0.root", false);
+	vector<double> min_time_l_1_6_spike_old = calc_min_time_sqrt(time_l_1_6_spike, j, "lamb_gap_rindex1.6_muon_rand_500entries0.root", false);
+*/
+
 	vector<double> min_time_l_ESR_old = calc_min_time_old(time_l_ESR, j);
-	vector<double> min_time_l_Tyvek_old = calc_min_time_old(time_l_Tyvek, j);
+//	vector<double> min_time_l_Tyvek_old = calc_min_time_old(time_l_Tyvek, j);
 	vector<double> min_time_l_ESR_rand_old = calc_min_time_old(time_l_ESR_rand, j);
-	vector<double> min_time_l_Tyvek_rand_old = calc_min_time_old(time_l_Tyvek_rand, j);
+	vector<double> min_time_l_lamb_old = calc_min_time_old(time_l_lamb, j);
+	vector<double> min_time_l_lamb_rand_old = calc_min_time_old(time_l_lamb_rand, j);
 	vector<double> min_time_l_spec_old = calc_min_time_old(time_l_99_spec, j);
 	vector<double> min_time_l_spec_rand_old = calc_min_time_old(time_l_99_spec_rand, j);
 	vector<double> min_time_l_airgap_old = calc_min_time_old(time_l_airgap, j);
 	vector<double> min_time_l_1_6_spike_old = calc_min_time_old(time_l_1_6_spike, j);
-*/
+
 	char name1[100], name2[100], name3[100], name4[100], name5[100], name6[100], name7[100], name8[100];
 	sprintf(name1, "ESR average timing of first %d", j);
 	sprintf(name2, "tyvek average timing of first %d", j);
@@ -715,92 +828,117 @@ void extr_time()
 
 
 	vector<double> temp_tup_ESR = hist_simple(name1, min_time_l_ESR);
-	vector<double> temp_tup_tyvek_rand = hist_simple(name2, min_time_l_tyvek_rand);
-	vector<double> temp_tup_lamb_rand = hist_simple(name4, min_time_l_lamb_rand);
+//	vector<double> temp_tup_tyvek_rand = hist_simple(name2, min_time_l_tyvek_rand);
 	vector<double> temp_tup_ESR_rand = hist_simple(name3, min_time_l_ESR_rand);
+	vector<double> temp_tup_lamb = hist_simple(name2, min_time_l_lamb);
+	vector<double> temp_tup_lamb_rand = hist_simple(name4, min_time_l_lamb_rand);
 	vector<double> temp_tup_spec = hist_simple(name5, min_time_l_spec);
 	vector<double> temp_tup_spec_rand = hist_simple(name6, min_time_l_spec_rand);
 	vector<double> temp_tup_airgap_rand = hist_simple(name7, min_time_l_airgap);
 	vector<double> temp_tup_1_6_spike_rand = hist_simple(name8, min_time_l_1_6_spike);
+
 	sd_l_ESR.push_back(temp_tup_ESR[0]);
 	err_l_ESR.push_back(temp_tup_ESR[1]);
+	
 	sd_l_spec.push_back(temp_tup_spec[0]);
 	err_l_spec.push_back(temp_tup_spec[1]);
 
 	sd_l_ESR_rand.push_back(temp_tup_ESR_rand[0]);
 	err_l_ESR_rand.push_back(temp_tup_ESR_rand[1]);
-	sd_l_tyvek_rand.push_back(temp_tup_tyvek_rand[0]);
-	err_l_tyvek_rand.push_back(temp_tup_tyvek_rand[1]);
+
+//	sd_l_tyvek_rand.push_back(temp_tup_tyvek_rand[0]);
+//	err_l_tyvek_rand.push_back(temp_tup_tyvek_rand[1]);
+
+	sd_l_lamb.push_back(temp_tup_lamb[0]);
+	err_l_lamb.push_back(temp_tup_lamb[1]);
+
 	sd_l_lamb_rand.push_back(temp_tup_lamb_rand[0]);
 	err_l_lamb_rand.push_back(temp_tup_lamb_rand[1]);
+
 	sd_l_spec_rand.push_back(temp_tup_spec_rand[0]);
 	err_l_spec_rand.push_back(temp_tup_spec_rand[1]);
+
 	sd_l_airgap.push_back(temp_tup_airgap_rand[0]);
 	err_l_airgap.push_back(temp_tup_airgap_rand[1]);
+
 	sd_l_1_6spike.push_back(temp_tup_1_6_spike_rand[0]);
 	err_l_1_6spike.push_back(temp_tup_1_6_spike_rand[1]);
 
+/////////////////////// OLD ////////////////////
 
-/*
 	vector<double> temp_tup_ESR_old = hist_simple(name1, min_time_l_ESR_old);
-	vector<double> temp_tup_tyvek_old = hist_simple(name2, min_time_l_Tyvek_old);
-	vector<double> temp_tup_tyvek_rand_old = hist_simple(name4, min_time_l_Tyvek_rand_old);
+//	vector<double> temp_tup_tyvek_old = hist_simple(name2, min_time_l_Tyvek_old);
+	vector<double> temp_tup_lamb_old = hist_simple(name2, min_time_l_lamb_old);
+	vector<double> temp_tup_lamb_rand_old = hist_simple(name4, min_time_l_lamb_rand_old);
 	vector<double> temp_tup_ESR_rand_old = hist_simple(name3, min_time_l_ESR_rand_old);
 	vector<double> temp_tup_spec_old = hist_simple(name5, min_time_l_spec_old);
 	vector<double> temp_tup_spec_rand_old = hist_simple(name6, min_time_l_spec_rand_old);
 	vector<double> temp_tup_airgap_rand_old = hist_simple(name7, min_time_l_airgap_old);
 	vector<double> temp_tup_1_6_spike_rand_old = hist_simple(name8, min_time_l_1_6_spike_old);
+
 	sd_l_ESR_old.push_back(temp_tup_ESR_old[0]);
 	err_l_ESR_old.push_back(temp_tup_ESR_old[1]);
-	sd_l_tyvek_old.push_back(temp_tup_tyvek_old[0]);
-	err_l_tyvek_old.push_back(temp_tup_tyvek_old[1]);
+
+//	sd_l_tyvek_old.push_back(temp_tup_tyvek_old[0]);
+//	err_l_tyvek_old.push_back(temp_tup_tyvek_old[1]);
+//
 	sd_l_spec_old.push_back(temp_tup_spec_old[0]);
 	err_l_spec_old.push_back(temp_tup_spec_old[1]);
 
 	sd_l_ESR_rand_old.push_back(temp_tup_ESR_rand_old[0]);
 	err_l_ESR_rand_old.push_back(temp_tup_ESR_rand_old[1]);
-	sd_l_tyvek_rand_old.push_back(temp_tup_tyvek_rand_old[0]);
-	err_l_tyvek_rand_old.push_back(temp_tup_tyvek_rand_old[1]);
+	
+	sd_l_lamb_old.push_back(temp_tup_lamb_old[0]);
+	err_l_lamb_old.push_back(temp_tup_lamb_old[1]);
+
+	sd_l_lamb_rand_old.push_back(temp_tup_lamb_rand_old[0]);
+	err_l_lamb_rand_old.push_back(temp_tup_lamb_rand_old[1]);
+
 	sd_l_spec_rand_old.push_back(temp_tup_spec_rand_old[0]);
 	err_l_spec_rand_old.push_back(temp_tup_spec_rand_old[1]);
+
 	sd_l_airgap_old.push_back(temp_tup_airgap_rand_old[0]);
 	err_l_airgap_old.push_back(temp_tup_airgap_rand_old[1]);
+
 	sd_l_1_6spike_old.push_back(temp_tup_1_6_spike_rand_old[0]);
-	err_l_1_6spike_old.push_back(temp_tup_1_6_spike_rand_old[1]);
-	*/
+	err_l_1_6spike_old.push_back(temp_tup_1_6_spike_rand_old[1]);	
 	}
-	vector<int> x = {1,5,10,25,50,75,100,150};
+
+	vector<int> x = {1,3,5,10,15,20,25,35,50,75,100};
+
+//	plot_both(x, sd_l_spec_rand, err_l_spec_rand, sd_l_airgap, err_l_airgap, "99.9 specular rand vs. airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)", "99.9 specular", "airgap ri=1.0");
+//	plot_three(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec_rand, err_l_spec_rand, sd_l_ESR_rand_old, err_l_ESR_rand_old, "ESR rand vs. airgap ri=1.0 rand vs. ESR rand with old formula (no weighted average); Number of Early Photons Averaged; Time Resolution (ps)", "ESR weighted", "99.9 specular weighted", "ESR old formula");
 
 //	plot_all(x, sd_l_tyvek, err_l_tyvek, sd_l_ESR, err_l_ESR, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec, err_l_spec, sd_l_spec_rand, err_l_spec_rand, sd_l_airgap, err_l_airgap, sd_l_1_6spike, err_l_1_6spike, "Time Resolution vs. Threshold; Number of Early Photons Averaged; Time Resolution (ps)");
 	
-	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec_rand, err_l_spec_rand, "ESR rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "99.9 specular");
+//	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_spec_rand, err_l_spec_rand, "ESR rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "99.9 specular");
 
-	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_tyvek_rand, err_l_tyvek_rand, "ESR rand vs. tyvek rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "tyvek");
+//	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_tyvek_rand, err_l_tyvek_rand, "ESR rand vs. tyvek rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "tyvek");
 
-	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_airgap, err_l_airgap, "ESR rand vs. airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.0");
+//	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_airgap, err_l_airgap, "ESR rand vs. airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.0");
 
-	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_1_6spike, err_l_1_6spike, "ESR rand vs. airgap r=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.6");
+//	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_1_6spike, err_l_1_6spike, "ESR rand vs. airgap r=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR", "airgap ri=1.6");
 
-	plot_both(x, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec_rand, err_l_spec_rand, "perfect lambertian rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "perfect lambertian", "99.9 specular");
-
-
+//	plot_both(x, sd_l_lamb_rand, err_l_lamb_rand, sd_l_spec_rand, err_l_spec_rand, "perfect lambertian rand vs. 99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "perfect lambertian", "99.9 specular");
 
 
+//	plot_both(x, sd_l_tyvek, err_l_tyvek, sd_l_tyvek_old, err_l_tyvek_old, "tyvek center; Number of Early Photons Averaged; Time Resolution (ps)");
+	plot_both(x, sd_l_ESR, err_l_ESR, sd_l_ESR_old, err_l_ESR_old, "ESR center; Number of Early Photons Averaged; Time Resolution (ps)", "ESR center comp.pdf", "new formula", "old formula");
 
+	plot_both(x, sd_l_lamb, err_l_lamb, sd_l_lamb_old, err_l_lamb_old, "perfect lambertian center; Number of Early Photons Averaged; Time Resolution (ps)", "perfect lamb center comp.pdf", "new formula", "old formula");
 
+	plot_both(x, sd_l_lamb_rand, err_l_lamb_rand, sd_l_lamb_rand_old, err_l_lamb_rand_old, "perfect lambertian rand; Number of Early Photons Averaged; Time Resolution (ps)", "perfect lamb rand comp.pdf", "new formula", "old formula");
 
+	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_ESR_rand_old, err_l_ESR_rand_old, "ESR rand; Number of Early Photons Averaged; Time Resolution (ps)", "ESR rand comp.pdf", "new formula", "old formula");
 
+	plot_both(x, sd_l_spec, err_l_spec, sd_l_spec_old, err_l_spec_old, "99.9 specular center; Number of Early Photons Averaged; Time Resolution (ps)", "99.9 specular center comp.pdf", "new formula", "old formula");
 
-/*
-	plot_both(x, sd_l_tyvek, err_l_tyvek, sd_l_tyvek_old, err_l_tyvek_old, "tyvek center; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_ESR, err_l_ESR, sd_l_ESR_old, err_l_ESR_old, "ESR center; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_tyvek_rand, err_l_tyvek_rand, sd_l_tyvek_rand_old, err_l_tyvek_rand_old, "tyvek rand; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_ESR_rand, err_l_ESR_rand, sd_l_ESR_rand_old, err_l_ESR_rand_old, "ESR rand; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_spec, err_l_spec, sd_l_spec_old, err_l_spec_old, "99.9 specular center; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_spec_rand, err_l_spec_rand, sd_l_spec_rand_old, err_l_spec_rand_old, "99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_airgap, err_l_airgap, sd_l_airgap_old, err_l_airgap_old, "airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)");
-	plot_both(x, sd_l_1_6spike, err_l_1_6spike, sd_l_1_6spike_old, err_l_1_6spike_old, "airgap ri=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)");
-*/	
+	plot_both(x, sd_l_spec_rand, err_l_spec_rand, sd_l_spec_rand_old, err_l_spec_rand_old, "99.9 specular rand; Number of Early Photons Averaged; Time Resolution (ps)", "99.9 specular rand comp.pdf", "new formula", "old formula");
+
+	plot_both(x, sd_l_airgap, err_l_airgap, sd_l_airgap_old, err_l_airgap_old, "airgap ri=1.0 rand; Number of Early Photons Averaged; Time Resolution (ps)", "airgap ri=1.0 rand comp.pdf", "new formula", "old formula");
+
+	plot_both(x, sd_l_1_6spike, err_l_1_6spike, sd_l_1_6spike_old, err_l_1_6spike_old, "airgap ri=1.6 rand; Number of Early Photons Averaged; Time Resolution (ps)", "airgap ri=1.6 rand comp.pdf", "new formula", "old formula");
+	
 	
 /*
 	vector<double> X_pos = get_stuff("ideal_tyvek_muon_center_500_entries0.root", "ScoringKilled", "fX");
